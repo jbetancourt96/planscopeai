@@ -3,27 +3,62 @@
 import { useCallback, useMemo, useState } from "react";
 import { useDropzone } from "react-dropzone";
 
-const trades = [
-  "Framing / Drywall",
+const scopePackages = [
+  "Drywall / Framing Package",
+  "Millwork Package",
+  "Flooring Package",
+  "Electrical Package",
+  "Plumbing Package",
+  "HVAC Package",
+  "Site / Civil Package",
+  "Structural Package",
+  "Landscape Package",
+  "Painting Package",
+  "Interiors Finish Package",
+];
+
+const customScopes = [
+  "Framing",
+  "Drywall",
+  "Insulation",
+  "ACT / Ceilings",
+  "Blocking / Backing",
+  "Caulking / Sealants",
+  "Firestopping",
+  "FRP",
+  "Wall Covering",
+  "Painting",
+  "Doors / Frames / Hardware Coordination",
   "Millwork",
   "Flooring",
-  "Painting",
+  "Roofing",
+  "Low Voltage",
   "Electrical",
   "Plumbing",
   "HVAC",
-  "Fire Protection",
-  "Roofing",
-  "Waterproofing",
-  "Demolition",
+  "Structural",
+  "Landscape",
   "Site / Civil",
-  "Low Voltage",
 ];
 
 export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [userType, setUserType] = useState<"gc" | "subcontractor">("gc");
-  const [analysisType, setAnalysisType] = useState<"full" | "trade">("full");
-  const [selectedTrade, setSelectedTrade] = useState<string>(trades[0]);
+  const [analysisType, setAnalysisType] = useState<
+    "full" | "package" | "custom"
+  >("full");
+  const [selectedPackage, setSelectedPackage] = useState<string>(
+    scopePackages[0]
+  );
+  const [selectedScopes, setSelectedScopes] = useState<string[]>([
+    "Framing",
+    "Drywall",
+    "Insulation",
+    "ACT / Ceilings",
+  ]);
+
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setUploadedFiles(acceptedFiles);
@@ -37,17 +72,107 @@ export default function Home() {
     multiple: true,
   });
 
+  const toggleScope = (scope: string) => {
+    setSelectedScopes((prev) =>
+      prev.includes(scope)
+        ? prev.filter((item) => item !== scope)
+        : [...prev, scope]
+    );
+  };
+
   const analysisSummary = useMemo(() => {
+    const role = userType === "gc" ? "General Contractor" : "Subcontractor";
+
     if (analysisType === "full") {
-      return userType === "gc"
-        ? "Full project analysis for General Contractor"
-        : "Full project analysis for Subcontractor";
+      return `Full project analysis for ${role}`;
     }
 
-    return `${selectedTrade} analysis for ${
-      userType === "gc" ? "General Contractor" : "Subcontractor"
+    if (analysisType === "package") {
+      return `${selectedPackage} for ${role}`;
+    }
+
+    return `Custom scope selection for ${role}: ${
+      selectedScopes.length > 0 ? selectedScopes.join(", ") : "No scopes selected"
     }`;
-  }, [analysisType, selectedTrade, userType]);
+  }, [analysisType, selectedPackage, selectedScopes, userType]);
+
+  const runAnalysis = () => {
+    if (uploadedFiles.length === 0) {
+      alert("Please upload at least one plan PDF first.");
+      return;
+    }
+
+    if (analysisType === "custom" && selectedScopes.length === 0) {
+      alert("Please select at least one custom scope.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+
+    setTimeout(() => {
+      const role = userType === "gc" ? "General Contractor" : "Subcontractor";
+
+      let summary = `Project Scope Summary
+
+User Type: ${role}
+Analysis Type: Full Project Analysis
+
+Detected Trade Packages:
+- Site / Civil
+- Structural
+- Drywall / Framing
+- Millwork
+- Flooring
+- Electrical
+- Plumbing
+- HVAC
+- Fire Protection
+- Landscape
+
+Initial AI Notes:
+- Review architectural, structural, MEP, and finish sheets
+- Cross-check scope with specs and finish schedules
+- Flag missing trade coordination items
+- Prepare trade-by-trade bid breakdown`;
+
+      if (analysisType === "package") {
+        summary = `Project Scope Summary
+
+User Type: ${role}
+Analysis Type: Scope Package
+
+Selected Package:
+- ${selectedPackage}
+
+Suggested Analysis Output:
+- Included scope items
+- Possible exclusions
+- Drawing/spec coordination notes
+- Material + labor review points
+- Potential RFIs for missing information`;
+      }
+
+      if (analysisType === "custom") {
+        summary = `Project Scope Summary
+
+User Type: ${role}
+Analysis Type: Custom Scope Selection
+
+Selected Scopes:
+${selectedScopes.map((scope) => `- ${scope}`).join("\n")}
+
+Suggested Analysis Output:
+- Scope summary based on selected work only
+- Coordination issues between selected scopes
+- Notes to compare drawings vs specs
+- Possible missing items to review before bid`;
+      }
+
+      setAnalysisResult(summary);
+      setIsAnalyzing(false);
+    }, 2000);
+  };
 
   return (
     <main
@@ -64,7 +189,7 @@ export default function Home() {
       <div
         style={{
           width: "100%",
-          maxWidth: "760px",
+          maxWidth: "860px",
           background: "#fff",
           borderRadius: "20px",
           padding: "40px",
@@ -161,11 +286,11 @@ export default function Home() {
               What do you want to analyze?
             </label>
 
-            <div style={{ display: "flex", gap: "12px" }}>
+            <div style={{ display: "grid", gap: "12px" }}>
               <button
                 onClick={() => setAnalysisType("full")}
                 style={{
-                  flex: 1,
+                  width: "100%",
                   padding: "14px",
                   borderRadius: "10px",
                   border:
@@ -180,25 +305,46 @@ export default function Home() {
               </button>
 
               <button
-                onClick={() => setAnalysisType("trade")}
+                onClick={() => setAnalysisType("package")}
                 style={{
-                  flex: 1,
+                  width: "100%",
                   padding: "14px",
                   borderRadius: "10px",
                   border:
-                    analysisType === "trade" ? "2px solid black" : "1px solid #ccc",
-                  background: analysisType === "trade" ? "#000" : "#fff",
-                  color: analysisType === "trade" ? "#fff" : "#000",
+                    analysisType === "package"
+                      ? "2px solid black"
+                      : "1px solid #ccc",
+                  background: analysisType === "package" ? "#000" : "#fff",
+                  color: analysisType === "package" ? "#fff" : "#000",
                   fontSize: "16px",
                   cursor: "pointer",
                 }}
               >
-                Single Trade Analysis
+                Scope Package Analysis
+              </button>
+
+              <button
+                onClick={() => setAnalysisType("custom")}
+                style={{
+                  width: "100%",
+                  padding: "14px",
+                  borderRadius: "10px",
+                  border:
+                    analysisType === "custom"
+                      ? "2px solid black"
+                      : "1px solid #ccc",
+                  background: analysisType === "custom" ? "#000" : "#fff",
+                  color: analysisType === "custom" ? "#fff" : "#000",
+                  fontSize: "16px",
+                  cursor: "pointer",
+                }}
+              >
+                Custom Scope Selection
               </button>
             </div>
           </div>
 
-          {analysisType === "trade" && (
+          {analysisType === "package" && (
             <div>
               <label
                 style={{
@@ -207,12 +353,12 @@ export default function Home() {
                   marginBottom: "8px",
                 }}
               >
-                Select Trade
+                Select Scope Package
               </label>
 
               <select
-                value={selectedTrade}
-                onChange={(e) => setSelectedTrade(e.target.value)}
+                value={selectedPackage}
+                onChange={(e) => setSelectedPackage(e.target.value)}
                 style={{
                   width: "100%",
                   padding: "14px",
@@ -222,12 +368,57 @@ export default function Home() {
                   background: "#fff",
                 }}
               >
-                {trades.map((trade) => (
-                  <option key={trade} value={trade}>
-                    {trade}
+                {scopePackages.map((pkg) => (
+                  <option key={pkg} value={pkg}>
+                    {pkg}
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {analysisType === "custom" && (
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontWeight: 600,
+                  marginBottom: "10px",
+                }}
+              >
+                Select Custom Scopes
+              </label>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                {customScopes.map((scope) => {
+                  const checked = selectedScopes.includes(scope);
+
+                  return (
+                    <button
+                      key={scope}
+                      onClick={() => toggleScope(scope)}
+                      style={{
+                        textAlign: "left",
+                        padding: "12px 14px",
+                        borderRadius: "10px",
+                        border: checked ? "2px solid black" : "1px solid #ccc",
+                        background: checked ? "#000" : "#fff",
+                        color: checked ? "#fff" : "#000",
+                        cursor: "pointer",
+                        fontSize: "15px",
+                      }}
+                    >
+                      {checked ? "✓ " : ""}{scope}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -273,6 +464,7 @@ export default function Home() {
           }}
         >
           <button
+            onClick={runAnalysis}
             style={{
               padding: "15px",
               fontSize: "16px",
@@ -283,7 +475,7 @@ export default function Home() {
               cursor: "pointer",
             }}
           >
-            Analyze Project Scope
+            {isAnalyzing ? "Analyzing plans..." : "Analyze Project Scope"}
           </button>
 
           <button
@@ -310,6 +502,22 @@ export default function Home() {
             AI Assistant
           </button>
         </div>
+
+        {analysisResult && (
+          <div
+            style={{
+              marginTop: "20px",
+              marginBottom: "20px",
+              padding: "20px",
+              borderRadius: "12px",
+              background: "#f4f4f4",
+              whiteSpace: "pre-line",
+              fontFamily: "monospace",
+            }}
+          >
+            {analysisResult}
+          </div>
+        )}
 
         <div>
           <h3 style={{ marginBottom: "10px" }}>Uploaded Files</h3>
