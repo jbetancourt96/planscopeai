@@ -41,6 +41,83 @@ const customScopes = [
   "Site / Civil",
 ];
 
+type Section = {
+  title: string;
+  items: string[];
+};
+
+function parseAnalysisToSections(text: string): Section[] {
+  if (!text) return [];
+
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const sections: Section[] = [];
+  let currentTitle = "";
+  let currentItems: string[] = [];
+
+  const flushSection = () => {
+    if (currentTitle && currentItems.length > 0) {
+      sections.push({
+        title: currentTitle,
+        items: currentItems,
+      });
+    }
+  };
+
+  for (const line of lines) {
+    const isHeading =
+      line === line.toUpperCase() &&
+      !line.startsWith("•") &&
+      !line.match(/^\d+\./) &&
+      !line.includes(":");
+
+    if (isHeading) {
+      flushSection();
+      currentTitle = line;
+      currentItems = [];
+      continue;
+    }
+
+    if (line.startsWith("•")) {
+      currentItems.push(line.replace("•", "").trim());
+      continue;
+    }
+
+    if (line.match(/^\d+\./)) {
+      currentItems.push(line);
+      continue;
+    }
+
+    if (line.includes(":") && currentTitle === "") {
+      sections.push({
+        title: "PROJECT OVERVIEW",
+        items: [line],
+      });
+      continue;
+    }
+
+    if (currentTitle) {
+      currentItems.push(line);
+    }
+  }
+
+  flushSection();
+
+  if (sections.length === 0) {
+    return [
+      {
+        title: "ANALYSIS",
+        items: lines,
+      },
+    ];
+  }
+
+  return sections;
+}
+
 export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [userType, setUserType] = useState<"gc" | "subcontractor">("gc");
@@ -96,6 +173,10 @@ export default function Home() {
     }`;
   }, [analysisType, selectedPackage, selectedScopes, userType]);
 
+  const reportSections = useMemo(() => {
+    return analysisResult ? parseAnalysisToSections(analysisResult) : [];
+  }, [analysisResult]);
+
   const runAnalysis = async () => {
     if (uploadedFiles.length === 0) {
       alert("Please upload at least one plan PDF first.");
@@ -126,14 +207,14 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        setAnalysisResult(data.error || "Error analyzing file.");
+        setAnalysisResult(data.error || "Analysis failed.");
         setIsAnalyzing(false);
         return;
       }
 
       setAnalysisResult(data.summary || "No analysis returned.");
     } catch (error) {
-      setAnalysisResult("Error analyzing file.");
+      setAnalysisResult("Analysis failed.");
     }
 
     setIsAnalyzing(false);
@@ -145,7 +226,7 @@ export default function Home() {
         minHeight: "100vh",
         display: "flex",
         justifyContent: "center",
-        alignItems: "center",
+        alignItems: "flex-start",
         padding: "40px 20px",
         background: "#f7f7f7",
         fontFamily: "Arial, sans-serif",
@@ -154,7 +235,7 @@ export default function Home() {
       <div
         style={{
           width: "100%",
-          maxWidth: "860px",
+          maxWidth: "980px",
           background: "#fff",
           borderRadius: "20px",
           padding: "40px",
@@ -427,7 +508,7 @@ export default function Home() {
           style={{
             display: "grid",
             gap: "14px",
-            marginBottom: "24px",
+            marginBottom: "28px",
           }}
         >
           <button
@@ -472,19 +553,66 @@ export default function Home() {
           </button>
         </div>
 
-        {analysisResult && (
-          <div
-            style={{
-              marginTop: "20px",
-              marginBottom: "20px",
-              padding: "20px",
-              borderRadius: "12px",
-              background: "#f4f4f4",
-              whiteSpace: "pre-line",
-              fontFamily: "monospace",
-            }}
-          >
-            {analysisResult}
+        {reportSections.length > 0 && (
+          <div style={{ marginBottom: "28px" }}>
+            <div
+              style={{
+                padding: "18px 20px",
+                borderRadius: "14px",
+                background: "#111",
+                color: "#fff",
+                marginBottom: "16px",
+              }}
+            >
+              <div style={{ fontSize: "13px", opacity: 0.8, marginBottom: "6px" }}>
+                BID READINESS REPORT
+              </div>
+              <div style={{ fontSize: "26px", fontWeight: 700 }}>
+                Drywall / Framing Review
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "16px",
+              }}
+            >
+              {reportSections.map((section, index) => (
+                <div
+                  key={index}
+                  style={{
+                    border: "1px solid #e7e7e7",
+                    borderRadius: "14px",
+                    padding: "18px",
+                    background: "#fafafa",
+                  }}
+                >
+                  <h3
+                    style={{
+                      marginTop: 0,
+                      marginBottom: "12px",
+                      fontSize: "18px",
+                    }}
+                  >
+                    {section.title}
+                  </h3>
+
+                  <ul
+                    style={{
+                      margin: 0,
+                      paddingLeft: "20px",
+                      lineHeight: 1.7,
+                      color: "#222",
+                    }}
+                  >
+                    {section.items.map((item, itemIndex) => (
+                      <li key={itemIndex}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
