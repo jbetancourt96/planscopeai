@@ -96,7 +96,7 @@ export default function Home() {
     }`;
   }, [analysisType, selectedPackage, selectedScopes, userType]);
 
-  const runAnalysis = () => {
+  const runAnalysis = async () => {
     if (uploadedFiles.length === 0) {
       alert("Please upload at least one plan PDF first.");
       return;
@@ -110,68 +110,33 @@ export default function Home() {
     setIsAnalyzing(true);
     setAnalysisResult(null);
 
-    setTimeout(() => {
-      const role = userType === "gc" ? "General Contractor" : "Subcontractor";
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadedFiles[0]);
+      formData.append("userType", userType);
+      formData.append("analysisType", analysisType);
+      formData.append("selectedPackage", selectedPackage);
+      formData.append("selectedScopes", JSON.stringify(selectedScopes));
 
-      let summary = `Project Scope Summary
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData,
+      });
 
-User Type: ${role}
-Analysis Type: Full Project Analysis
+      const data = await response.json();
 
-Detected Trade Packages:
-- Site / Civil
-- Structural
-- Drywall / Framing
-- Millwork
-- Flooring
-- Electrical
-- Plumbing
-- HVAC
-- Fire Protection
-- Landscape
-
-Initial AI Notes:
-- Review architectural, structural, MEP, and finish sheets
-- Cross-check scope with specs and finish schedules
-- Flag missing trade coordination items
-- Prepare trade-by-trade bid breakdown`;
-
-      if (analysisType === "package") {
-        summary = `Project Scope Summary
-
-User Type: ${role}
-Analysis Type: Scope Package
-
-Selected Package:
-- ${selectedPackage}
-
-Suggested Analysis Output:
-- Included scope items
-- Possible exclusions
-- Drawing/spec coordination notes
-- Material + labor review points
-- Potential RFIs for missing information`;
+      if (!response.ok) {
+        setAnalysisResult(data.error || "Error analyzing file.");
+        setIsAnalyzing(false);
+        return;
       }
 
-      if (analysisType === "custom") {
-        summary = `Project Scope Summary
+      setAnalysisResult(data.summary || "No analysis returned.");
+    } catch (error) {
+      setAnalysisResult("Error analyzing file.");
+    }
 
-User Type: ${role}
-Analysis Type: Custom Scope Selection
-
-Selected Scopes:
-${selectedScopes.map((scope) => `- ${scope}`).join("\n")}
-
-Suggested Analysis Output:
-- Scope summary based on selected work only
-- Coordination issues between selected scopes
-- Notes to compare drawings vs specs
-- Possible missing items to review before bid`;
-      }
-
-      setAnalysisResult(summary);
-      setIsAnalyzing(false);
-    }, 2000);
+    setIsAnalyzing(false);
   };
 
   return (
@@ -403,6 +368,7 @@ Suggested Analysis Output:
                     <button
                       key={scope}
                       onClick={() => toggleScope(scope)}
+                      type="button"
                       style={{
                         textAlign: "left",
                         padding: "12px 14px",
@@ -414,7 +380,8 @@ Suggested Analysis Output:
                         fontSize: "15px",
                       }}
                     >
-                      {checked ? "✓ " : ""}{scope}
+                      {checked ? "✓ " : ""}
+                      {scope}
                     </button>
                   );
                 })}
@@ -479,6 +446,7 @@ Suggested Analysis Output:
           </button>
 
           <button
+            type="button"
             style={{
               padding: "15px",
               fontSize: "16px",
@@ -491,6 +459,7 @@ Suggested Analysis Output:
           </button>
 
           <button
+            type="button"
             style={{
               padding: "15px",
               fontSize: "16px",
